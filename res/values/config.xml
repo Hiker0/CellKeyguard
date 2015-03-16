@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="SecondsColor">#ffffffff</color>
+    <color name="PowerColor">#ffffffff</color>
+    <color name="LowPowerColor">#ffff0000</color>
+    
+</resources>
