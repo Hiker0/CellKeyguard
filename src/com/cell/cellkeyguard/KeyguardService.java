@@ -36,10 +36,7 @@ public class KeyguardService extends Service {
 		// TODO Auto-generated method stub
 		Log.d(TAG,"onStartCommand");
 		
-		if(!mKeyguardViewManager.isShowing()){
-			mKeyguardViewManager.attachKeyguardView();
-		}
-		
+		mKeyguardViewManager.showView();
 		return super.onStartCommand(intent, flags, startId);
 
 	}

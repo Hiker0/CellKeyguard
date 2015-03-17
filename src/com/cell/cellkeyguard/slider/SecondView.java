@@ -107,18 +107,23 @@ public class SecondView extends ImageView {
 		@Override
 		public void run() {
 			// TODO Auto-generated method stub
-			updateTime();
+			refresh();
 			invalidate();
 			postDelayed(mClockTick,1000);
 		}   
 		
 	};
 	
-	public  void updateTime() {
+	private void refresh(){
 		
 		mCalendar.setTimeInMillis(System.currentTimeMillis());
         
         value = mCalendar.get(Calendar.SECOND);
+	}
+	
+	public  void updateTime() {
+		refresh();
+		invalidate();
         removeCallbacks(mClockTick);
         post(mClockTick);
         
