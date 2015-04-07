@@ -18,6 +18,10 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.view.animation.Animation;
+import android.view.animation.LinearInterpolator;
+import android.view.animation.Transformation;
+import android.view.animation.TranslateAnimation;
 import android.widget.FrameLayout;
 import android.widget.FrameLayout.LayoutParams;
 
@@ -39,7 +43,11 @@ public class KeyguardViewManager {
 	
 	private WindowManager.LayoutParams wlp;
 	private LayoutParams params;
-	private HostViewListener mOnTouchListener;
+	private HostViewListener mOnTouchListener = new HostViewListener();;
+	private  Animation translateAnimation;
+	private UnlockAnimationListener mUnlockAnimationListener = new UnlockAnimationListener();
+	private final int WIDTH,HEIGHT;
+	
 	KeyguardUpdateMonitorCallback mCallback = new KeyguardUpdateMonitorCallback(){
 
 		@Override
@@ -83,18 +91,29 @@ public class KeyguardViewManager {
 		mUpdateMonitor = KeyguardUpdateMonitor.getInstance(context);
 		mWindowManager = (WindowManager)context.getSystemService(Context.WINDOW_SERVICE);
 		
+		WindowManager wm = (WindowManager)mContext.getSystemService(Context.WINDOW_SERVICE);
+		Point outSize = new Point();
+		wm.getDefaultDisplay().getSize(outSize);
+		WIDTH	= outSize.x;
+		HEIGHT	= outSize.y;
+		
 		maybeCreateKeyguardHost();
 
 		
 	}
 	
+	private void resetState(){
+		mOnTouchListener.mMoveState=HostViewListener.MOVE_STATE_NONE;
+		mUnlockAnimationListener.unlockType=UnlockAnimationListener.UNLOCK_TYPE_NONE;
+	}
+	
+	
 	private void maybeCreateKeyguardHost(){
 		if(mKeyguardHost == null){
 			 mKeyguardHost = new ViewManagerHost(mContext);
-			
 			 
 			 int flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
-	                | WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR
+//	                | WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR
 	                | WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN
 			         | WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED ;
 			 final int stretch = ViewGroup.LayoutParams.MATCH_PARENT;
@@ -107,7 +126,7 @@ public class KeyguardViewManager {
 	        wlp.screenOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
 	        mWindowManager.addView(mKeyguardHost, wlp);
 	        
-	        mOnTouchListener = new HostViewListener();
+	        resetState();
 	        mKeyguardHost.setOnTouchListener(mOnTouchListener);
 		}
 	}
@@ -157,16 +176,14 @@ public class KeyguardViewManager {
 	private void  doUnlock(){
 		mKeyguardHost.setVisibility(View.GONE);
 		hideKeyguardView();
-		mOnTouchListener.mMoveState=mOnTouchListener.MOVE_STATE_NONE;
+		mOnTouchListener.mMoveState=HostViewListener.MOVE_STATE_NONE;
 	}
 	private int getLayoutRes(){
 		
 		return R.layout.keyguard_slider_layout;
 	}
 	
-	private void animateUnlock(){
-		doUnlock();
-	}
+
 	
 	private void updateWindow(int dx, int dy){
 		Log.d(TAG,"updateWindow dx="+dx+" dy="+dy);
@@ -190,27 +207,51 @@ public class KeyguardViewManager {
 		}
     	
     }
-    private void setNavigationBarEnabled(boolean enabled) {
-
-        mKeyguardHost.setSystemUiVisibility(enabled ?
-               mKeyguardHost.getSystemUiVisibility() &~View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    &~View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN:
-                    mKeyguardHost.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN 
-                        |View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    )
-               ;
-    }
+    
+    
+	private void animateUnlock(int state){
+		doUnlock();
+		/*
+		if(translateAnimation!=null){
+			translateAnimation.cancel();
+		}
+		switch(state){
+		case HostViewListener.MOVE_STATE_TOP:
+			translateAnimation = new TranslateAnimation(0,0,-MAX_SLID_DISTANCE,-HEIGHT);
+			mUnlockAnimationListener.unlockType = UnlockAnimationListener.UNLOCK_TYPE_TOP;
+			break;
+		case HostViewListener.MOVE_STATE_BOTTOM:
+			translateAnimation = new TranslateAnimation(0,0,MAX_SLID_DISTANCE,HEIGHT);
+			mUnlockAnimationListener.unlockType = UnlockAnimationListener.UNLOCK_TYPE_BOTTOM;
+			break;
+		case HostViewListener.MOVE_STATE_LEFT:
+			translateAnimation = new TranslateAnimation(-MAX_SLID_DISTANCE,-WIDTH,0,0);
+			mUnlockAnimationListener.unlockType = UnlockAnimationListener.UNLOCK_TYPE_LEFT;
+			break;
+		case HostViewListener.MOVE_STATE_RIGHT:
+			translateAnimation = new TranslateAnimation(MAX_SLID_DISTANCE,WIDTH,0,0);
+			mUnlockAnimationListener.unlockType = UnlockAnimationListener.UNLOCK_TYPE_RIGHT;
+			break;
+			default:
+		}
+		 
+		mKeyguardHost.setAnimation(translateAnimation);
+		translateAnimation.setAnimationListener(mUnlockAnimationListener);
+		translateAnimation.start();
+		*/
+		
+	}
 	
-	class HostViewListener implements View.OnTouchListener{
+    class HostViewListener implements View.OnTouchListener{
 
 
-		public final int MOVE_STATE_NONE = -1;
-		public final int MOVE_STATE_DOWN = 0;
-		public final int MOVE_STATE_LEFT = 1;
-		public final int MOVE_STATE_RIGHT = 2;
-		public final int MOVE_STATE_TOP = 3;
-		public final int MOVE_STATE_BOTTOM = 4;
-		public final int MOVE_STATE_UNLOCK = 5;
+		public final static int MOVE_STATE_NONE = -1;
+		public final static int MOVE_STATE_DOWN = 0;
+		public final static int MOVE_STATE_LEFT = 1;
+		public final static int MOVE_STATE_RIGHT = 2;
+		public final static int MOVE_STATE_TOP = 3;
+		public final static int MOVE_STATE_BOTTOM = 4;
+		public final static int MOVE_STATE_UNLOCK = 5;
 		
 		private Point mDownPoint = new Point(); 
 		private int mMoveState = MOVE_STATE_NONE ;
@@ -219,6 +260,8 @@ public class KeyguardViewManager {
 			mDownPoint.x = x;
 			mDownPoint.y = y;
 		}
+		
+		
 		private void handleMoveEvent(int dx, int dy){
 			switch(mMoveState){
 			case MOVE_STATE_DOWN:
@@ -242,7 +285,7 @@ public class KeyguardViewManager {
 					updateWindow(dx,0);
 					if(Math.abs(dx)>MAX_SLID_DISTANCE){
 						mMoveState=MOVE_STATE_UNLOCK;
-						animateUnlock();
+						animateUnlock(MOVE_STATE_LEFT);
 					}
 				}else{
 					updateWindow(0,0);
@@ -254,7 +297,7 @@ public class KeyguardViewManager {
 					updateWindow(dx,0);
 					if(Math.abs(dx)>MAX_SLID_DISTANCE){
 						mMoveState=MOVE_STATE_UNLOCK;
-						animateUnlock();
+						animateUnlock(MOVE_STATE_RIGHT);
 					}
 				}else{
 					updateWindow(0,0);
@@ -266,7 +309,7 @@ public class KeyguardViewManager {
 					updateWindow(0,dy);
 					if(Math.abs(dy)>MAX_SLID_DISTANCE){
 						mMoveState=MOVE_STATE_UNLOCK;
-						animateUnlock();
+						animateUnlock(MOVE_STATE_TOP);
 					}
 				}else{
 					updateWindow(0,0);
@@ -278,7 +321,7 @@ public class KeyguardViewManager {
 					updateWindow(0,dy);
 					if(Math.abs(dy)>MAX_SLID_DISTANCE){
 						mMoveState=MOVE_STATE_UNLOCK;
-						animateUnlock();
+						animateUnlock(MOVE_STATE_BOTTOM);
 					}
 				}else{
 					updateWindow(0,0);
@@ -325,6 +368,7 @@ public class KeyguardViewManager {
 				}
 				if(mMoveState>MOVE_STATE_DOWN && mMoveState < MOVE_STATE_UNLOCK){
 					updateWindow(0,0);
+					mMoveState=MOVE_STATE_NONE;
 				}
 			}
 			
@@ -334,6 +378,65 @@ public class KeyguardViewManager {
 	
 		
 	}
-    
+   
+    class UnlockAnimation extends Animation{
+    	
+    	@Override 
+    	public void initialize(int width, int height, int parentWidth,  
+
+    	   int parentHeight)
+
+    	{  
+
+    	   super.initialize(width, height, parentWidth, parentHeight);  
+
+  
+
+    	   setDuration(2500);  
+
+    	   setFillAfter(true);   
+
+    	   setInterpolator(new LinearInterpolator());  
+
+    	}  
+    	@Override 
+
+    	protected void applyTransformation(float interpolatedTime,  
+
+    	      Transformation t)
+
+    	{  
+    		
+    	}
+    	
+    }
+	
+	class UnlockAnimationListener implements android.view.animation.Animation.AnimationListener{
+		final static int UNLOCK_TYPE_NONE=0;
+		final static int UNLOCK_TYPE_LEFT=1;
+		final static int UNLOCK_TYPE_RIGHT=2;
+		final static int UNLOCK_TYPE_TOP=3;
+		final static int UNLOCK_TYPE_BOTTOM=4;
+		int unlockType = UNLOCK_TYPE_NONE;
+		
+		@Override
+		public void onAnimationEnd(Animation arg0) {
+			// TODO Auto-generated method stub
+			doUnlock();
+		}
+
+		@Override
+		public void onAnimationRepeat(Animation arg0) {
+			// TODO Auto-generated method stub
+			
+		}
+
+		@Override
+		public void onAnimationStart(Animation arg0) {
+			// TODO Auto-generated method stub
+			
+		}
+		
+	}
     
 }
